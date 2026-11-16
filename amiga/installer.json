@@ -1,0 +1,14 @@
+{
+  "name": "Savage Wheels",
+  "version": "1.7.1-gfos1",
+  "drawer": "SavageWheels",
+  "program": "SavageWheels",
+  "cpu": "68040",
+  "fpu": true,
+  "space": 40000000,
+  "modules": ["SDL2.module", "SDL2_mixer.module"],
+  "keep": ["User"],
+  "parent": "Work:Games",
+  "badge": "icons/art/savagewheels.png",
+  "script": "Install-SavageWheels"
+}

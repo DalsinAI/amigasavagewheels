@@ -1,0 +1,101 @@
+diff --git a/src/CKdf.cpp b/src/CKdf.cpp
+index 5a8b60b..b021051 100644
+--- a/src/CKdf.cpp
++++ b/src/CKdf.cpp
+@@ -105,6 +105,7 @@ int CKdf_Packeger::Open( const char *kdf_pathname )
+ 
+ 	// read file info-header
+ 	fread( &num_files, sizeof(num_files), 1, fpKDF );
++	num_files = (int)SDL_SwapLE32( (Uint32)num_files );	// written on x86
+ 	pfiles = new kdf_file[num_files];
+ 	fread( pfiles, sizeof(kdf_file) * num_files, 1, fpKDF );
+ 
+diff --git a/src/CSdl.cpp b/src/CSdl.cpp
+index 785bcac..ac9bae2 100644
+--- a/src/CSdl.cpp
++++ b/src/CSdl.cpp
+@@ -392,7 +392,11 @@ bool CSdl::IsJoystickHatState(int state)
+ ///////////////////////////////////////////////////////////////////////
+ bool CSdl::IsKeyPressed(int keyIndex)
+ {
++#ifdef __amigaos__
++	return sdl12on2_key_down( keys, keyIndex );
++#else
+ 	return keys[keyIndex];
++#endif
+ }
+ 
+ ///////////////////////////////////////////////////////////////////////
+@@ -1390,7 +1394,7 @@ SDL_Surface* CSdl::LoadBitmap( const char *filename, int32_t file_offset, Uint32
+ 
+         // TODO: Temp fix. Refactor this block below.
+ #ifdef LINUX_BUILD
+-	if ( filename[0] != '/' )
++	if ( filename[0] != '/' && strchr( filename, ':' ) == NULL )
+ 	{
+ 	    tmp = String(sys_datadir).append("/autos/").append(filename);
+ 	}
+diff --git a/src/CSwv_module.cpp b/src/CSwv_module.cpp
+index 14d9195..d3f6b65 100644
+--- a/src/CSwv_module.cpp
++++ b/src/CSwv_module.cpp
+@@ -195,10 +195,25 @@ int CSwv_module::Load( char *filename, SWV_HEADER *swv_file )
+ 	fseek(fp, ftell(fp) - sizeof(SWV_FILES *) / 2, SEEK_SET);
+ #endif
+ 
++	// the .swv files were written on 32-bit x86: little-endian numbers
++	{
++		int32_t *n[] = { (int32_t *)&swv_file->max_vel, (int32_t *)&swv_file->acc,
++			&swv_file->dec_acc, (int32_t *)&swv_file->rot_speed, &swv_file->lbs,
++			(int32_t *)&swv_file->damage, (int32_t *)&swv_file->hp,
++			&swv_file->hp_crash, &swv_file->animation_frames };
++		for ( unsigned i = 0; i < sizeof(n) / sizeof(n[0]); i++ )
++			*n[i] = (int32_t)SDL_SwapLE32( (Uint32)*n[i] );
++	}
++
+ 	// read file_positions
+ 	int num_anims = swv_file->animation_frames * 2 + 3; // (+3 face.bmp dface.bmp, name.bmp)
+ 	swv_file->pfiles = new SWV_FILES[num_anims];
+ 	fread( swv_file->pfiles, sizeof(SWV_FILES) * (num_anims), 1, fp );
++	for ( int i = 0; i < num_anims; i++ )
++	{
++		swv_file->pfiles[i].pos = (int32_t)SDL_SwapLE32( (Uint32)swv_file->pfiles[i].pos );
++		swv_file->pfiles[i].length = (int32_t)SDL_SwapLE32( (Uint32)swv_file->pfiles[i].length );
++	}
+ 
+ // 	for (int i = 0; i < num_anims; i++) {
+ // 		DBG("pos: " << swv_file->pfiles[i].pos
+diff --git a/src/CSwv_module.h b/src/CSwv_module.h
+index ca97e93..0e39dcf 100644
+--- a/src/CSwv_module.h
++++ b/src/CSwv_module.h
+@@ -111,6 +111,12 @@ struct SWV_HEADER {
+ 	SWV_FILES 		*pfiles;
+ };
+ 
++#ifndef ARCH_X64
++/* the layout the .swv files were written with (32-bit x86) */
++typedef char swv_header_is_116_bytes[ sizeof(SWV_HEADER) == 116 ? 1 : -1 ];
++typedef char swv_files_is_264_bytes[ sizeof(SWV_FILES) == 264 ? 1 : -1 ];
++#endif
++
+ class CSwv_module
+ {
+ 
+diff --git a/src/Main.cpp b/src/Main.cpp
+index 44ce765..e22943d 100644
+--- a/src/Main.cpp
++++ b/src/Main.cpp
+@@ -68,7 +68,11 @@ int main( int argc, char *argv[] )
+ 	bool fullscreen = false;
+ 	String tmp;
+ 
+-#ifdef LINUX_BUILD
++#if defined(__amigaos__)
++	/* the drawer's Data (the game data) and User (bindings, prefs, log) */
++	sys_datadir = "PROGDIR:Data";
++	usr_cfgdir = usr_datadir = "PROGDIR:User";
++#elif defined(LINUX_BUILD)
+ 	sys_datadir = getenv("SAVAGEWHEELS_SYS_DATADIR");
+ 	if (sys_datadir == NULL)
+ 	{

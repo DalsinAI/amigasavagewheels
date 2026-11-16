@@ -1,0 +1,115 @@
+# Savage Wheels for GFOS (AmigaOS 3.2 with GFOpenUp), 68040/68060 + FPU, on
+# GFOpenUp's SDL 2 (LIBS:GFOpenGPU/SDL2.module and SDL2_mixer.module).
+#
+#   make -f amiga/Makefile.amigaos -j4 SW=/path/to/savagewheels DATA=/path/to/gamedata [STOVE=...]
+#
+# SW is upstream Savage Wheels at the commit package/savagewheels.lock
+# names, with amiga/patches applied; DATA is its game data unpacked
+# (package/build-amiga.sh fetches, checks and patches both). STOVE is a
+# GFOpenAmigaGCC 16.2.0-open6 stove: its prefix/ has the compiler, the NDK
+# and GFOpenGPU's SDL 2 kit (prefix/m68k-amigaos).
+#
+# The game is written for SDL 1.2: amiga/compat/ gives it the 1.2 calls it
+# makes, on SDL 2 (sdl12on2.c). Upstream's own "SDL.h" include finds
+# amiga/compat/SDL.h first.
+#
+# Output: build/amigaos/SavageWheels/ (the drawer: SavageWheels, Data/ with
+# the graphics, cars, sounds and the default key bindings, User/, ReadMe,
+# the licences, with GlowIcons), build/amigaos/SavageWheels.info and
+# Install-SavageWheels beside them.
+
+SW      ?= ../savagewheels
+DATA    ?= ../savagewheels-data
+STOVE   ?= $(HOME)/AmiCradle/kitchen/stoves/os32-gcc16-open6
+PREFIX  ?= $(STOVE)/prefix
+SDL2KIT ?= $(PREFIX)/m68k-amigaos
+CC      = $(PREFIX)/bin/m68k-amigaos-gcc
+CXX     = $(PREFIX)/bin/m68k-amigaos-g++
+STRIP   = $(PREFIX)/bin/m68k-amigaos-strip
+# hard float: GFOpenGPU's SDL 2 kit is built -m68881
+CPU     ?= -m68040 -m68881
+# -fno-tree-loop-distribute-patterns: GCC 16's loop miscompile (the kit's
+# sdl2-config gives it for GCC 16 too).
+OPT     ?= -O2 -fomit-frame-pointer -fno-tree-loop-distribute-patterns -fno-math-errno
+
+# LINUX_BUILD: upstream's POSIX side (dirent, "/" paths); the patch sends
+# its data and settings drawers to PROGDIR:Data and PROGDIR:User.
+DEFS    = -D__amigaos__ -DLINUX_BUILD -DWITH_SDLMIXER
+INC     = -Iamiga/compat -I$(SW)/src -I$(SW)/tinyxml -I$(SDL2KIT)/include/SDL2
+# NOIX: libnix (tests/host builds with the host's C library: NOIX=)
+NOIX    ?= -noixemul
+CFLAGS  = $(NOIX) $(OPT) $(CPU) $(DEFS) $(INC)
+# GCC 16 defaults to C++20; the game is older C++
+CXXFLAGS = $(CFLAGS) -std=gnu++11 -Wno-deprecated-declarations
+LDFLAGS = $(NOIX) $(CPU)
+LIBS    ?= -L$(SDL2KIT)/lib -lSDL2_mixer -lSDL2 -lm
+
+BUILD   = build/amigaos
+OBJDIR  = $(BUILD)/obj
+OUT     = $(BUILD)/SavageWheels
+PROG    = SavageWheels
+VERSION := $(shell sed -n 's/^SW_VERSION=//p' package/savagewheels.lock)
+
+# upstream's CMakeLists.txt list
+GAME    = CBufferedReader Bindings CDeadToy CKdf CSdl CSwv_module CVehicle Utils \
+          CAnimation CGame CMainMenu CSounds CTimer Main
+XML     = tinystr tinyxml tinyxmlerror tinyxmlparser
+OBJS    = $(addprefix $(OBJDIR)/src/,$(addsuffix .o,$(GAME))) \
+          $(addprefix $(OBJDIR)/tinyxml/,$(addsuffix .o,$(XML))) \
+          $(OBJDIR)/amiga/sdl12on2.o $(OBJDIR)/amiga/amiga_start.o
+
+all: $(OUT)/$(PROG) package
+
+# upstream's CMake writes Config.h from Config.h.in
+$(OBJDIR)/Config.h: package/savagewheels.lock
+	@mkdir -p $(OBJDIR)
+	sed -e 's/@APP_VER_MAJ@/$(word 1,$(subst ., ,$(VERSION)))/' \
+	    -e 's/@APP_VER_MIN@/$(word 2,$(subst ., ,$(VERSION)))/' \
+	    -e 's/@APP_VER_PATCH@/$(word 3,$(subst ., ,$(VERSION)))/' \
+	    -e 's/@APP_ARCH@/m68k/' $(SW)/Config.h.in > $@
+
+$(BUILD)/$(PROG).debug: $(OBJS)
+	@mkdir -p $(BUILD)
+	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
+
+$(OUT)/$(PROG): $(BUILD)/$(PROG).debug
+	@mkdir -p $(OUT)
+	$(STRIP) -o $@ $<
+
+package: $(OUT)/$(PROG) AMIGA_PORT.md amiga/Licences.txt
+	mkdir -p $(OUT)/User $(OUT)/Data
+	sh amiga/copy-data.sh $(DATA) $(OUT)/Data
+	cp $(SW)/bin/bindings.xml $(OUT)/Data/bindings.xml
+	cp AMIGA_PORT.md $(OUT)/ReadMe
+	cp $(SW)/LICENSE $(OUT)/LICENSE.txt
+	cp $(SW)/README.md $(OUT)/README-SavageWheels.txt
+	cp $(SW)/bin/Readme.html $(OUT)/Help.html
+	cp amiga/Licences.txt $(OUT)/Licences.txt
+	cp amiga/icons/SavageWheels.info amiga/icons/ReadMe.info $(OUT)/
+	for f in LICENSE.txt README-SavageWheels.txt Licences.txt Help.html; do \
+	    cp amiga/icons/ReadMe.info $(OUT)/$$f.info; done
+	cp amiga/icons/Data.info $(OUT)/User.info
+	cp amiga/icons/Data.info $(OUT)/Data.info
+	cp amiga/icons/SavageWheels-drawer.info $(BUILD)/SavageWheels.info
+	cp amiga/Install-SavageWheels amiga/Install-SavageWheels.info $(BUILD)/
+
+$(OBJDIR)/src/%.o: $(SW)/src/%.cpp $(wildcard $(SW)/src/*.h) $(OBJDIR)/Config.h amiga/compat/sdl12on2.h
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -I$(OBJDIR) -c -o $@ $<
+
+$(OBJDIR)/tinyxml/%.o: $(SW)/tinyxml/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+$(OBJDIR)/amiga/sdl12on2.o: amiga/compat/sdl12on2.c amiga/compat/sdl12on2.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/amiga/%.o: amiga/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+clean:
+	rm -rf $(BUILD)
+
+.PHONY: all package clean
