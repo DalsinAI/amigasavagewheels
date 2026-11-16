@@ -4,7 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <SDL.h>
+#include <time.h>
+#include <sys/timeb.h>
 #include "amiga_start.h"
+
+int sw_ftime(struct timeb *tb);
 
 static int fails;
 #define CHECK(c) do { if (!(c)) { printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #c); fails++; } } while (0)
@@ -118,6 +122,16 @@ static void test_copy(const char *dir)
 	CHECK(sw_copy_if_missing(from, to) == -1);
 }
 
+static void test_ftime(void)
+{
+	struct timeb tb;
+	time_t now = time(NULL);
+
+	CHECK(sw_ftime(&tb) == 0);
+	CHECK(tb.time >= now - 1 && tb.time <= now + 1);
+	CHECK(tb.millitm < 1000);
+}
+
 int main(int argc, char **argv)
 {
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -126,6 +140,7 @@ int main(int argc, char **argv)
 	}
 	test_video();
 	test_keys();
+	test_ftime();
 	SDL_Quit();
 	test_copy(argc > 1 ? argv[1] : ".");
 	printf("%s: %d failed\n", argv[0], fails);

@@ -42,7 +42,8 @@ CFLAGS  = $(NOIX) $(OPT) $(CPU) $(DEFS) $(INC)
 # GCC 16 defaults to C++20; the game is older C++
 CXXFLAGS = $(CFLAGS) -std=gnu++11 -Wno-deprecated-declarations
 LDFLAGS = $(NOIX) $(CPU)
-LIBS    ?= -L$(SDL2KIT)/lib -lSDL2_mixer -lSDL2 -lm
+# libstdc++ on the open6 stove wants -lpthread -latomic
+LIBS    ?= -L$(SDL2KIT)/lib -lSDL2_mixer -lSDL2 -lpthread -latomic -lm
 
 BUILD   = build/amigaos
 OBJDIR  = $(BUILD)/obj
@@ -56,7 +57,9 @@ GAME    = CBufferedReader Bindings CDeadToy CKdf CSdl CSwv_module CVehicle Utils
 XML     = tinystr tinyxml tinyxmlerror tinyxmlparser
 OBJS    = $(addprefix $(OBJDIR)/src/,$(addsuffix .o,$(GAME))) \
           $(addprefix $(OBJDIR)/tinyxml/,$(addsuffix .o,$(XML))) \
-          $(OBJDIR)/amiga/sdl12on2.o $(OBJDIR)/amiga/amiga_start.o
+          $(OBJDIR)/amiga/sdl12on2.o $(OBJDIR)/amiga/amiga_start.o $(FTIME)
+# libnix has no ftime() (tests/host: FTIME=, the host's)
+FTIME   ?= $(OBJDIR)/amiga/ftime.o
 
 all: $(OUT)/$(PROG) package
 
@@ -102,6 +105,10 @@ $(OBJDIR)/tinyxml/%.o: $(SW)/tinyxml/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 $(OBJDIR)/amiga/sdl12on2.o: amiga/compat/sdl12on2.c amiga/compat/sdl12on2.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/amiga/ftime.o: amiga/compat/ftime.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ $<
 

@@ -45,7 +45,7 @@ ok "game data SHA-256 matches"
 
 # 3. the build
 B="$T/build"
-HOST="CC=gcc CXX=g++ CPU= NOIX= SDL2KIT=/usr OPT=-O1"
+HOST="CC=gcc CXX=g++ CPU= NOIX= SDL2KIT=/usr OPT=-O1 FTIME="
 make -s -f amiga/Makefile.amigaos -j8 SW="$SW" BUILD="$B" $HOST \
     DEFS="-D__amigaos__ -DLINUX_BUILD -DWITH_SDLMIXER -DARCH_X64" \
     LIBS="-lSDL2_mixer -lSDL2 -lm" "$B/SavageWheels.debug" > "$T/make.log" 2>&1 || { tail -30 "$T/make.log"; exit 1; }
@@ -53,8 +53,8 @@ ok "game builds on the host"
 
 # 4. compat
 SDLF=$(sdl2-config --cflags) SDLL=$(sdl2-config --libs)
-gcc -O1 -Wall -Iamiga/compat -Iamiga $SDLF -o "$T/test_compat" tests/host/test_compat.c \
-    amiga/compat/sdl12on2.c amiga/amiga_start.c $SDLL
+gcc -O1 -Wall -Iamiga/compat -Iamiga $SDLF -DSW_FTIME=sw_ftime -o "$T/test_compat" tests/host/test_compat.c \
+    amiga/compat/sdl12on2.c amiga/amiga_start.c amiga/compat/ftime.c $SDLL
 SDL_VIDEODRIVER=dummy "$T/test_compat" "$T"
 
 # 5. data readers, little- and big-endian
