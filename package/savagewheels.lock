@@ -1,0 +1,12 @@
+# The upstream Savage Wheels the port builds (Kenamick's game, MIT): fetched
+# at this commit by package/build-amiga.sh, never kept in this repository.
+SW_URL=https://github.com/kenamick/savagewheels
+SW_COMMIT=d173d0d539caf27cc65db1e87ccb3834d5bf6c5a
+SW_VERSION=1.7.1
+PORT_VERSION=1.7.1-gfos1
+# The game data upstream publishes beside its source (the v1.4 release's
+# savagewheels-gamedata.tar.gz, still the data 1.7.1 reads): fetched and
+# checked at build time, put unpacked in the drawer's Data. logo.avi is not
+# used by the game and is left out.
+SW_DATA_URL=https://github.com/petarov/savagewheels/releases/download/v1.4/savagewheels-gamedata.tar.gz
+SW_DATA_SHA256=01fd7b9e122ff7d62363cbe3fd73d63de27bd48e40572e65ac9bb0d60bbad6ad

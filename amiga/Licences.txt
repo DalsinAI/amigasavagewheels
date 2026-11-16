@@ -1,0 +1,19 @@
+Savage Wheels: licences
+=======================
+
+The game: Savage Wheels by KenamicK Entertainment (Peter Petrov and
+friends, 2003-2026), https://github.com/kenamick/savagewheels.
+
+- The program is under the MIT License (LICENSE.txt; README-SavageWheels.txt
+  and Help.html are upstream's own read-me and game help).
+- TinyXML (by Lee Thomason, zlib licence) is built into the program, as
+  upstream builds it.
+- The game data in Data/ are upstream's own data archive
+  (savagewheels-gamedata.tar.gz, released beside the source), unchanged,
+  without logo.avi, which the game does not use. The sound effects in
+  Data/sound are CC0 (Data/sound/LICENSE lists them); the pictures, cars
+  and the four Impulse Tracker tunes come with the game from its authors.
+- SDL 2 and SDL2_mixer are GFOpenUp's (LIBS:GFOpenGPU), not in this drawer.
+- The Amiga port's own files (amiga/, AMIGA_PORT.md, package/, tools/,
+  tests/) are MIT, like the game; the GlowIcon art is The AmiCradle Team's
+  own.
